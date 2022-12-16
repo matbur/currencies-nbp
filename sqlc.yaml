@@ -1,0 +1,12 @@
+version: 2
+sql:
+  - schema: currencies/migrations
+    queries: currencies/store/queries
+    engine: postgresql
+    gen:
+      go:
+        package: store
+        out: currencies/store
+        overrides:
+          - column: prices.price
+            go_type: float64

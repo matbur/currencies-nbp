@@ -22,3 +22,5 @@ go.work
 
 # Encore
 /.encore
+encore.gen.go
+encore.gen.cue
