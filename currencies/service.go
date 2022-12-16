@@ -4,15 +4,19 @@ import (
 	"context"
 	"database/sql"
 	"encore.app/currencies/store"
+	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
 	"errors"
-	"log"
 	"time"
 )
 
 const RFC3339Date = "2006-01-02"
 
 var db = sqldb.Named("currencies").Stdlib()
+
+var (
+	ErrCurrencyNotSupported = errs.B().Code(errs.InvalidArgument).Msg("CURRENCY_NOT_SUPPORTED").Err()
+)
 
 // encore:service
 type Service struct {
@@ -30,72 +34,115 @@ type Params struct {
 }
 
 type Price struct {
+	Date     string
+	Currency string
+	Price    float64
+}
+
+type PriceResponse struct {
 	Date  string
 	Price float64
 }
 
 type Response struct {
-	Min    *Price `json:"min,omitempty"`
-	Max    *Price `json:"max,omitempty"`
-	Prices []Price
+	Currency string
+	Min      *PriceResponse `json:"min,omitempty"`
+	Max      *PriceResponse `json:"max,omitempty"`
+	Prices   []PriceResponse
 }
 
-// encore:api private
+// encore:api public method=GET path=/currencies/year
 func (s *Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
-	log.Println(p)
-	return &Response{
-		Prices: []Price{
-			{
-				Date:  time.Now().Format(RFC3339Date),
-				Price: 3.4,
-			},
-		},
-	}, nil
-}
+	if p.Currency != "" && p.Currency != "USD" {
+		return nil, ErrCurrencyNotSupported
+	}
 
-type GetMonthParams struct{}
+	now := time.Now()
+	firstDayOfYear := time.Date(now.Year(), 1, 1,
+		0, 0, 0, 0, now.Location())
 
-// encore:api public
-func (s *Service) GetMonth(ctx context.Context, p *GetMonthParams) (*Response, error) {
-	_ = p
-
-	rows, err := s.repo.GetPrices(ctx)
+	prices, err := s.getPrices(ctx, &firstDayOfYear, nil)
 	if err != nil {
 		return nil, err
+	}
+
+	return pricesToResponse(prices), err
+}
+
+// encore:api public method=GET path=/currencies/month
+func (s *Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
+	if p.Currency != "" && p.Currency != "USD" {
+		return nil, ErrCurrencyNotSupported
 	}
 
 	now := time.Now()
 	firstDayOfMonth := time.Date(now.Year(), now.Month(), 1,
 		0, 0, 0, 0, now.Location())
 
-	prices := make([]Price, 0, len(rows))
-	var max, min *Price
-	for _, row := range rows {
-		if row.Date.Before(firstDayOfMonth) {
-			continue
+	prices, err := s.getPrices(ctx, &firstDayOfMonth, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return pricesToResponse(prices), err
+}
+
+func pricesToResponse(pp []Price) *Response {
+	currency := ""
+
+	priceResponses := make([]PriceResponse, 0, len(pp))
+	var max, min *PriceResponse
+	for _, p := range pp {
+		if currency == "" {
+			currency = p.Currency
 		}
 
-		p := Price{
-			Date:  row.Date.Format(RFC3339Date),
-			Price: row.Price,
+		pr := PriceResponse{
+			Date:  p.Date,
+			Price: p.Price,
 		}
 		if min == nil || p.Price < min.Price {
-			min = &p
+			min = &pr
 		}
 		if max == nil || max.Price < p.Price {
-			max = &p
+			max = &pr
 		}
-		prices = append(prices, p)
+		priceResponses = append(priceResponses, pr)
 	}
 
 	return &Response{
-		Prices: prices,
-		Min:    min,
-		Max:    max,
-	}, nil
+		Currency: currency,
+		Min:      min,
+		Max:      max,
+		Prices:   priceResponses,
+	}
 }
 
-// encore:api private
+func (s *Service) getPrices(ctx context.Context, startDate, endDate *time.Time) ([]Price, error) {
+	rows, err := s.repo.GetPrices(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	prices := make([]Price, 0, len(rows))
+	for _, row := range rows {
+		if startDate != nil && startDate.After(row.Date) {
+			continue
+		}
+		if endDate != nil && endDate.Before(row.Date) {
+			continue
+		}
+
+		prices = append(prices, Price{
+			Date:     row.Date.Format(RFC3339Date),
+			Currency: row.Currency,
+			Price:    row.Price,
+		})
+	}
+	return prices, err
+}
+
+// encore:api private method=POST path=/currencies/year
 func (s *Service) saveYear(ctx context.Context) error {
 	bb, err := getFile()
 	if err != nil {
