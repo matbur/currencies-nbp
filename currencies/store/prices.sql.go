@@ -55,6 +55,7 @@ INSERT INTO
     prices (date, currency, price)
 VALUES
     ($1, $2, $3)
+ON CONFLICT (date, currency) DO NOTHING
 `
 
 type SavePriceParams struct {

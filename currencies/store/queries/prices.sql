@@ -2,7 +2,8 @@
 INSERT INTO
     prices (date, currency, price)
 VALUES
-    (@date, @currency, @price);
+    (@date, @currency, @price)
+ON CONFLICT (date, currency) DO NOTHING;
 
 -- name: GetPrices :many
 SELECT
