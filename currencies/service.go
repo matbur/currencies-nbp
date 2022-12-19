@@ -7,6 +7,7 @@ import (
 	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
 	"errors"
+	"strings"
 	"time"
 )
 
@@ -46,15 +47,15 @@ type PriceResponse struct {
 
 type Response struct {
 	Currency string
-	Min      *PriceResponse `json:"min,omitempty"`
-	Max      *PriceResponse `json:"max,omitempty"`
-	Prices   []PriceResponse
+	Min      *PriceResponse  `json:"min,omitempty"`
+	Max      *PriceResponse  `json:"max,omitempty"`
+	Prices   []PriceResponse `json:"prices"`
 }
 
 // encore:api public method=GET path=/currencies/year
 func (s *Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
-	if p.Currency != "" && p.Currency != "USD" {
-		return nil, ErrCurrencyNotSupported
+	if _, err := parseCurrencyParam(p.Currency); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -71,8 +72,8 @@ func (s *Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 
 // encore:api public method=GET path=/currencies/month
 func (s *Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
-	if p.Currency != "" && p.Currency != "USD" {
-		return nil, ErrCurrencyNotSupported
+	if _, err := parseCurrencyParam(p.Currency); err != nil {
+		return nil, err
 	}
 
 	now := time.Now()
@@ -202,4 +203,12 @@ func BeginTxFunc(ctx context.Context, db *sql.DB, f func(*sql.Tx) error) (err er
 	}
 
 	return tx.Commit()
+}
+
+func parseCurrencyParam(c string) (string, error) {
+	c = strings.ToUpper(c)
+	if c == "" || c == "USD" {
+		return "USD", nil
+	}
+	return "", ErrCurrencyNotSupported
 }
