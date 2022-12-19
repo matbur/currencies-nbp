@@ -53,7 +53,7 @@ type Response struct {
 }
 
 // encore:api public method=GET path=/currencies/year
-func (s *Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
+func (s Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 	if _, err := parseCurrencyParam(p.Currency); err != nil {
 		return nil, err
 	}
@@ -71,7 +71,7 @@ func (s *Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 }
 
 // encore:api public method=GET path=/currencies/month
-func (s *Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
+func (s Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
 	if _, err := parseCurrencyParam(p.Currency); err != nil {
 		return nil, err
 	}
@@ -119,7 +119,7 @@ func pricesToResponse(pp []Price) *Response {
 	}
 }
 
-func (s *Service) getPrices(ctx context.Context, startDate, endDate *time.Time) ([]Price, error) {
+func (s Service) getPrices(ctx context.Context, startDate, endDate *time.Time) ([]Price, error) {
 	rows, err := s.repo.GetPrices(ctx)
 	if err != nil {
 		return nil, err
@@ -144,7 +144,7 @@ func (s *Service) getPrices(ctx context.Context, startDate, endDate *time.Time) 
 }
 
 // encore:api private method=POST path=/currencies/year
-func (s *Service) saveYear(ctx context.Context) error {
+func (s Service) SaveYear(ctx context.Context) error {
 	bb, err := getFile()
 	if err != nil {
 		return err
@@ -161,7 +161,7 @@ func (s *Service) saveYear(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) savePrices(ctx context.Context, prices []Price) error {
+func (s Service) savePrices(ctx context.Context, prices []Price) error {
 	return BeginTxFunc(ctx, db, func(tx *sql.Tx) error {
 		for _, p := range prices {
 			date, err := time.Parse(RFC3339Date, p.Date)
