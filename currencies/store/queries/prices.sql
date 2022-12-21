@@ -12,5 +12,7 @@ SELECT
     price
 FROM
     prices
+WHERE
+    currency = @currency
 ORDER BY
     date;

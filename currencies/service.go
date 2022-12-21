@@ -31,6 +31,7 @@ func initService() (*Service, error) {
 }
 
 type Params struct {
+	// Currently supported currencies are: USD and EUR
 	Currency string
 }
 
@@ -54,7 +55,8 @@ type Response struct {
 
 // encore:api public method=GET path=/currencies/year
 func (s Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
-	if _, err := parseCurrencyParam(p.Currency); err != nil {
+	currency, err := parseCurrencyParam(p.Currency)
+	if err != nil {
 		return nil, err
 	}
 
@@ -62,7 +64,7 @@ func (s Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 	firstDayOfYear := time.Date(now.Year(), 1, 1,
 		0, 0, 0, 0, now.Location())
 
-	prices, err := s.getPrices(ctx, &firstDayOfYear, nil)
+	prices, err := s.getPrices(ctx, currency, &firstDayOfYear, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +74,8 @@ func (s Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 
 // encore:api public method=GET path=/currencies/month
 func (s Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
-	if _, err := parseCurrencyParam(p.Currency); err != nil {
+	currency, err := parseCurrencyParam(p.Currency)
+	if err != nil {
 		return nil, err
 	}
 
@@ -80,7 +83,7 @@ func (s Service) GetMonth(ctx context.Context, p *Params) (*Response, error) {
 	firstDayOfMonth := time.Date(now.Year(), now.Month(), 1,
 		0, 0, 0, 0, now.Location())
 
-	prices, err := s.getPrices(ctx, &firstDayOfMonth, nil)
+	prices, err := s.getPrices(ctx, currency, &firstDayOfMonth, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -119,8 +122,8 @@ func pricesToResponse(pp []Price) *Response {
 	}
 }
 
-func (s Service) getPrices(ctx context.Context, startDate, endDate *time.Time) ([]Price, error) {
-	rows, err := s.repo.GetPrices(ctx)
+func (s Service) getPrices(ctx context.Context, currency string, startDate, endDate *time.Time) ([]Price, error) {
+	rows, err := s.repo.GetPrices(ctx, currency)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +174,7 @@ func (s Service) savePrices(ctx context.Context, prices []Price) error {
 
 			err = s.repo.WithTx(tx).SavePrice(ctx, store.SavePriceParams{
 				Date:     date,
-				Currency: "USD",
+				Currency: p.Currency,
 				Price:    p.Price,
 			})
 			if err != nil {
@@ -206,9 +209,11 @@ func BeginTxFunc(ctx context.Context, db *sql.DB, f func(*sql.Tx) error) (err er
 }
 
 func parseCurrencyParam(c string) (string, error) {
-	c = strings.ToUpper(c)
-	if c == "" || c == "USD" {
+	switch strings.ToLower(c) {
+	case "", "usd":
 		return "USD", nil
+	case "eur":
+		return "EUR", nil
 	}
 	return "", ErrCurrencyNotSupported
 }

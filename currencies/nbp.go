@@ -20,7 +20,6 @@ func getFile() ([]byte, error) {
 	defer resp.Body.Close()
 
 	return io.ReadAll(resp.Body)
-
 }
 
 func parseFile(bb []byte) ([]Price, error) {
@@ -30,7 +29,7 @@ func parseFile(bb []byte) ([]Price, error) {
 
 	ss, err := r.ReadAll()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
 	rows := make([]Price, 0, len(ss))
@@ -42,19 +41,33 @@ func parseFile(bb []byte) ([]Price, error) {
 
 		date, err := time.Parse("20060102", s[0])
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		usd, err := strconv.ParseFloat(
 			strings.ReplaceAll(s[2], ",", "."),
 			64)
 		if err != nil {
-			panic(err)
+			return nil, err
 		}
 
 		rows = append(rows, Price{
-			Date:  date.Format(RFC3339Date),
-			Price: usd,
+			Date:     date.Format(RFC3339Date),
+			Currency: "USD",
+			Price:    usd,
+		})
+
+		eur, err := strconv.ParseFloat(
+			strings.ReplaceAll(s[8], ",", "."),
+			64)
+		if err != nil {
+			return nil, err
+		}
+
+		rows = append(rows, Price{
+			Date:     date.Format(RFC3339Date),
+			Currency: "EUR",
+			Price:    eur,
 		})
 	}
 	return rows, nil

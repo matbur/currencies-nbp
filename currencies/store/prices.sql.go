@@ -17,6 +17,8 @@ SELECT
     price
 FROM
     prices
+WHERE
+    currency = $1
 ORDER BY
     date
 `
@@ -27,8 +29,8 @@ type GetPricesRow struct {
 	Price    float64
 }
 
-func (q *Queries) GetPrices(ctx context.Context) ([]GetPricesRow, error) {
-	rows, err := q.db.QueryContext(ctx, getPrices)
+func (q *Queries) GetPrices(ctx context.Context, currency string) ([]GetPricesRow, error) {
+	rows, err := q.db.QueryContext(ctx, getPrices, currency)
 	if err != nil {
 		return nil, err
 	}
