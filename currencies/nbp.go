@@ -11,7 +11,7 @@ import (
 )
 
 func getFile() ([]byte, error) {
-	url := "https://www.nbp.pl/kursy/Archiwum/archiwum_tab_a_2022.csv"
+	url := "https://www.nbp.pl/kursy/Archiwum/archiwum_tab_a_2023.csv"
 	//url = "http://localhost:8000/"
 	resp, err := http.Get(url)
 	if err != nil {
