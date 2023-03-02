@@ -7,6 +7,7 @@ import (
 	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
 	"errors"
+	"github.com/pjaskulski/nbpapi"
 	"strings"
 	"time"
 )
@@ -14,6 +15,10 @@ import (
 const RFC3339Date = "2006-01-02"
 
 var db = sqldb.Named("currencies").Stdlib()
+var supportedCurrencies = map[string]struct{}{
+	"USD": {},
+	"EUR": {},
+}
 
 var (
 	ErrCurrencyNotSupported = errs.B().Code(errs.InvalidArgument).Msg("CURRENCY_NOT_SUPPORTED").Err()
@@ -47,7 +52,7 @@ type PriceResponse struct {
 }
 
 type Response struct {
-	Currency string
+	Currency string          `json:"currency"`
 	Min      *PriceResponse  `json:"min,omitempty"`
 	Max      *PriceResponse  `json:"max,omitempty"`
 	Prices   []PriceResponse `json:"prices"`
@@ -146,22 +151,72 @@ func (s Service) getPrices(ctx context.Context, currency string, startDate, endD
 	return prices, err
 }
 
-// encore:api private method=POST path=/currencies/year
-func (s Service) SaveYear(ctx context.Context) error {
-	bb, err := getFile()
+// encore:api private method=POST path=/currencies/current
+func (s Service) SaveCurrent(ctx context.Context) (*SaveDateResponse, error) {
+	client := nbpapi.NewTable("A")
+	tt, err := client.GetTableCurrent()
 	if err != nil {
-		return err
-	}
-	prices, err := parseFile(bb)
-	if err != nil {
-		return err
+		return nil, err
 	}
 
+	if len(tt) == 0 {
+		return nil, errors.New("no data returned")
+	}
+
+	prices := parseTable(tt[0])
 	if err := s.savePrices(ctx, prices); err != nil {
-		return err
+		return nil, err
 	}
 
-	return nil
+	return &SaveDateResponse{
+		Prices: prices,
+	}, nil
+}
+
+type SaveDateParams struct {
+	Date string
+}
+
+type SaveDateResponse struct {
+	Prices []Price
+}
+
+// encore:api private method=POST path=/currencies/date
+func (s Service) SaveDate(ctx context.Context, params *SaveDateParams) (*SaveDateResponse, error) {
+	client := nbpapi.NewTable("A")
+	tt, err := client.GetTableByDate(params.Date)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(tt) == 0 {
+		return nil, errors.New("no data returned")
+	}
+
+	prices := parseTable(tt[0])
+	if err := s.savePrices(ctx, prices); err != nil {
+		return nil, err
+	}
+
+	return &SaveDateResponse{
+		Prices: prices,
+	}, nil
+}
+
+func parseTable(t nbpapi.ExchangeTable) []Price {
+	prices := make([]Price, 0, len(t.Rates))
+	for _, r := range t.Rates {
+		if _, ok := supportedCurrencies[r.Code]; !ok {
+			continue
+		}
+
+		prices = append(prices, Price{
+			Date:     t.EffectiveDate,
+			Currency: strings.ToUpper(r.Code),
+			Price:    r.Mid,
+		})
+	}
+	return prices
 }
 
 func (s Service) savePrices(ctx context.Context, prices []Price) error {
