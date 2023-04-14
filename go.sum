@@ -4,5 +4,7 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/jarcoal/httpmock v1.0.6 h1:e81vOSexXU3mJuJ4l//geOmKIt+Vkxerk1feQBC8D0g=
 github.com/jarcoal/httpmock v1.0.6/go.mod h1:ATjnClrvW/3tijVmpL/va5Z3aAyGvqU3gCT8nX0Txik=
-github.com/pjaskulski/nbpapi v0.3.7 h1:Y2m6bGqQkl8bZ9o2Q6J5FVqqdtMcqD6E4KOUgR0e3Zs=
-github.com/pjaskulski/nbpapi v0.3.7/go.mod h1:RLaj4Ql05R2R4HfBTm2zdCc7OxNAQKYnlk6FnUAJdNM=
+github.com/patrickmn/go-cache v2.1.0+incompatible h1:HRMgzkcYKYpi3C8ajMPV8OFXaaRUnok+kx1WdO15EQc=
+github.com/patrickmn/go-cache v2.1.0+incompatible/go.mod h1:3Qf8kWWT7OJRJbdiICTKqZju1ZixQ/KpMGzzAfe6+WQ=
+github.com/pjaskulski/nbpapi v0.3.8-0.20230413155223-ccb0dfba69de h1:Oj2wqnitmedqZgRD+sDZ/OLod9ls1/IcKSrt7X+oKaE=
+github.com/pjaskulski/nbpapi v0.3.8-0.20230413155223-ccb0dfba69de/go.mod h1:MMhR8hgV9NYMG5mx8nvbFltDI6chHvtA3OjhGDusAl4=
