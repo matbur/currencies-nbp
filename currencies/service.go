@@ -7,12 +7,17 @@ import (
 	"encore.dev/beta/errs"
 	"encore.dev/storage/sqldb"
 	"errors"
+	"fmt"
 	"github.com/pjaskulski/nbpapi"
 	"strings"
 	"time"
 )
 
-const RFC3339Date = "2006-01-02"
+const (
+	RFC3339Date  = "2006-01-02"
+	RFC3339Month = "2006-01"
+	RFC3339Year  = "2006"
+)
 
 var db = sqldb.Named("currencies").Stdlib()
 var supportedCurrencies = map[string]struct{}{
@@ -156,7 +161,7 @@ func (s Service) SaveCurrent(ctx context.Context) (*SaveDateResponse, error) {
 	client := nbpapi.NewTable("A")
 	tt, err := client.GetTableCurrent()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get current table: %w", err)
 	}
 
 	if len(tt) == 0 {
@@ -165,7 +170,30 @@ func (s Service) SaveCurrent(ctx context.Context) (*SaveDateResponse, error) {
 
 	prices := parseTable(tt[0])
 	if err := s.savePrices(ctx, prices); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to save prices: %w", err)
+	}
+
+	return &SaveDateResponse{
+		Prices: prices,
+	}, nil
+}
+
+// encore:api private method=POST path=/currencies/month
+func (s Service) SaveMonth(ctx context.Context) (*SaveDateResponse, error) {
+	noOfDays := time.Now().Day()
+
+	client := nbpapi.NewTable("A")
+	if err := client.TableLast(noOfDays); err != nil {
+		return nil, fmt.Errorf("failed to get last %d tables: %w", noOfDays, err)
+	}
+
+	prices := make([]Price, 0, noOfDays*len(supportedCurrencies))
+	for _, t := range client.Exchange {
+		prices = append(prices, parseTable(t)...)
+	}
+
+	if err := s.savePrices(ctx, prices); err != nil {
+		return nil, fmt.Errorf("failed to save prices: %w", err)
 	}
 
 	return &SaveDateResponse{
