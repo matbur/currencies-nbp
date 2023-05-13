@@ -63,6 +63,15 @@ type Response struct {
 	Prices   []PriceResponse `json:"prices"`
 }
 
+type DateRange struct {
+	From time.Time
+	To   time.Time
+}
+
+func (r DateRange) String() string {
+	return fmt.Sprintf("%s:%s", r.From.Format(RFC3339Date), r.To.Format(RFC3339Date))
+}
+
 // encore:api public method=GET path=/currencies/year
 func (s Service) GetYear(ctx context.Context, p *Params) (*Response, error) {
 	currency, err := parseCurrencyParam(p.Currency)
@@ -178,17 +187,31 @@ func (s Service) SaveCurrent(ctx context.Context) (*SaveDateResponse, error) {
 	}, nil
 }
 
-// encore:api private method=POST path=/currencies/month
-func (s Service) SaveMonth(ctx context.Context) (*SaveDateResponse, error) {
-	noOfDays := time.Now().Day()
+type SaveMonthParams struct {
+	Month string
+}
 
-	client := nbpapi.NewTable("A")
-	if err := client.TableLast(noOfDays); err != nil {
-		return nil, fmt.Errorf("failed to get last %d tables: %w", noOfDays, err)
+// encore:api private method=POST path=/currencies/month
+func (s Service) SaveMonth(ctx context.Context, params *SaveMonthParams) (*SaveDateResponse, error) {
+	yearMonth := params.Month
+	if yearMonth == "" {
+		yearMonth = time.Now().Format("2006-01")
 	}
 
-	prices := make([]Price, 0, noOfDays*len(supportedCurrencies))
-	for _, t := range client.Exchange {
+	now := time.Now()
+	dateRange, err := mkDateRange(yearMonth, &now)
+	if err != nil {
+		return nil, err
+	}
+
+	client := nbpapi.NewTable("A")
+	tt, err := client.GetTableByDate(dateRange.String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get tables from %q: %w", dateRange, err)
+	}
+
+	var prices []Price
+	for _, t := range tt {
 		prices = append(prices, parseTable(t)...)
 	}
 
@@ -198,6 +221,23 @@ func (s Service) SaveMonth(ctx context.Context) (*SaveDateResponse, error) {
 
 	return &SaveDateResponse{
 		Prices: prices,
+	}, nil
+}
+
+func mkDateRange(yearMonth string, maxDate *time.Time) (DateRange, error) {
+	rangeBegin, err := time.Parse(RFC3339Month, yearMonth)
+	if err != nil {
+		return DateRange{}, fmt.Errorf("failed to parse %q: %w", yearMonth, err)
+	}
+
+	rangeEnd := rangeBegin.AddDate(0, 1, -1)
+	if maxDate != nil && rangeEnd.After(*maxDate) {
+		rangeEnd = *maxDate
+	}
+
+	return DateRange{
+		From: rangeBegin,
+		To:   rangeEnd,
 	}, nil
 }
 
